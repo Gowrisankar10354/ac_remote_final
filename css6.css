@@ -1,0 +1,429 @@
+/* --- Theme Variables & Base --- */
+:root {
+    --bg-primary: #111827;    /* Gray 900 */
+    --bg-card: #1f2937;      /* Gray 800 */
+    --bg-element: #374155;  /* Gray 700 for interactable elements */
+    --text-primary: #e5e7eb;  /* Gray 200 */
+    --text-secondary: #9ca3af;/* Gray 400 */
+    --accent-purple: #a78bfa; /* Purple 400 */
+    --highlight-active: #22d3ee; /* Cyan 400 */
+    --highlight-filled: #67e8f9; /* Cyan 300 (lighter fill) */
+    --highlight-temp-change: #f59e0b; /* Orange 500 */
+    --status-connected: #34d399; /* Emerald 400 */
+    --status-disconnected: #f87171; /* Red 400 */
+    --border-color: #4b5563; /* Gray 600 */
+}
+
+/* Custom Tailwind-like classes for variable application to HTML for cleanliness */
+.bg-primary-color { background-color: var(--bg-primary); }
+.bg-card-color { background-color: var(--bg-card); }
+.bg-element-color { background-color: var(--bg-element); }
+.text-primary-color { color: var(--text-primary); }
+.text-secondary-color { color: var(--text-secondary); }
+.accent-purple-text { color: var(--accent-purple); }
+.highlight-active-text { color: var(--highlight-active); }
+.border-color { border-color: var(--border-color); }
+
+body { 
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-primary); 
+    color: var(--text-primary);
+    overscroll-behavior-y: contain; /* Prevent pull-to-refresh on mobile for better PWA feel */
+}
+.card {
+    background-color: var(--bg-card);
+    border-radius: 1.25rem; /* 20px */
+    padding: 1.5rem; /* 24px */
+    box-shadow: 0 8px 16px -4px rgba(0,0,0,0.3), 0 4px 6px -2px rgba(0,0,0,0.15);
+    display: flex; flex-direction: column;
+    border: 1px solid var(--border-color);
+}
+.section-title {
+    color: var(--accent-purple); 
+    font-size: 1.125rem; /* 18px */
+    font-weight: 600; 
+    text-align: center; 
+    margin-bottom: 1.25rem;
+}
+
+/* Animations */
+@keyframes subtlePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.75; } }
+.interactive-button { transition: transform 0.1s ease-out, background-color 0.2s ease, box-shadow 0.2s ease; }
+.interactive-button:hover { filter: brightness(1.1); }
+.interactive-button:active { transform: scale(0.95); filter: brightness(0.9); }
+
+
+/* App Header */
+#appHeaderGlobal {
+    text-align: center; padding: 1.5rem 1rem 1rem 1rem; width: 100%;
+    background-color: var(--bg-primary); 
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 1.5rem; 
+    position: relative; /* Needed for desktop shutdown button positioning */
+}
+.header-title {
+    font-size: clamp(1.75rem, 5vw, 2.5rem); 
+    font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em;
+    text-shadow: 0 0 10px rgba(167, 139, 250, 0.3); 
+}
+.header-subtitle { color: var(--text-secondary); margin-top: 0.25rem; font-size: clamp(0.875rem, 2.5vw, 1rem); }
+.status-display-header { display: flex; align-items: center; justify-content: center; margin-top: 0.75rem; gap: 0.5rem;}
+.status-dot-header { width: 0.75rem; height: 0.75rem; border-radius: 50%; transition: background-color 0.3s ease, box-shadow 0.3s ease; }
+.status-dot-header.connected { background-color: var(--status-connected); box-shadow: 0 0 8px var(--status-connected); animation: subtlePulse 1.5s infinite; }
+.status-dot-header.disconnected { background-color: var(--status-disconnected); box-shadow: 0 0 8px var(--status-disconnected); }
+
+#bleConnectButton { 
+    font-size: 0.875rem; font-weight: 500; padding: 0.3rem 0.6rem; border-radius: 0.25rem;
+    cursor: pointer; transition: background-color 0.2s, color 0.2s;
+    border: 1px solid transparent;
+}
+#bleConnectButton.connected { color: white; background-color: var(--status-connected); border-color: var(--status-connected); }
+#bleConnectButton.connected:hover { filter: brightness(1.1); }
+#bleConnectButton.disconnected { color: var(--text-primary); background-color: var(--bg-element); border-color: var(--border-color); }
+#bleConnectButton.disconnected:hover { background-color: var(--accent-purple); color:white; }
+#bleConnectButton:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Desktop Shutdown Button specific style */
+.desktop-shutdown-button {
+    position:absolute; /* Fixed position relative to the viewport */
+    top: 1.5rem; 
+    right: 1.5rem;
+    background-color: rgb(212, 27, 14); /* Red */
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    z-index: 100; /* Ensure it's above other page content, but below popups */
+    border: none;
+    box-shadow: 0 4px 10px -2px rgba(0,0,0,0.3);
+    display: none; /* Hidden by default, shown by md:block utility class */
+}
+.desktop-shutdown-button:hover {
+    background-color: rgb(180, 23, 12); /* Darker red on hover */
+    filter: brightness(1.05); /* Slightly brighter hover, mimicking interactive button */
+}
+
+/* AC Power Button (desktop and mobile) ON state styles */
+/* Animation: subtlePulse has been REMOVED for this button as requested */
+.power-button-on {
+    background-color: var(--status-connected) !important; /* Forces green when ON */
+    box-shadow: 0 0 12px var(--status-connected) !important; /* Glow effect for ON state */
+}
+.power-button-on:hover {
+    background-color: #2cb380 !important; /* A slightly different green on hover when ON */
+    filter: brightness(1.05); /* Maintain a slight brighten effect */
+}
+
+
+/* AC Controls - Temperature animation */
+.temp-display-val { transition: color 0.3s ease, transform 0.3s ease; }
+.temp-changing { transform: scale(1.15) !important; color: var(--highlight-temp-change) !important; }
+.currentModeIcon i.mode-active { animation: subtlePulse 2s infinite ease-in-out; }
+
+
+/* Fan Speed UI (Desktop - Vertical, LOW at bottom, fills up) */
+.fan-speed-module-desktop { display: flex; flex-direction: column; align-items: center; height: 100%; }
+.fan-speed-bar-container-desktop {
+    display: flex; flex-direction: column-reverse; /* LOW at bottom, fills upwards */
+    align-items: center; width: 64px; margin-bottom: 2rem; padding: 0.575rem;
+    border-radius: 0.5rem; border: 2px solid var(--border-color);
+    flex-grow: 1; justify-content: flex-start; /* Align items to the start (bottom due to reverse) */
+}
+.fan-speed-level-desktop {
+    width: 100%; height: 1.75rem; margin-top: 0.35rem; /* spacing between levels */
+    border-radius: 0.25rem; 
+    background-color: var(--bg-element); /* Explicit dark background */
+    transition: all 0.2s ease-out;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600; font-size: 0.75rem; color: var(--text-secondary); cursor: pointer;
+    border: 1px solid transparent;
+}
+.fan-speed-level-desktop:first-child { margin-top: 6px; }
+.fan-speed-level-desktop.filled { background-color: var(--highlight-filled); color: var(--bg-primary); }
+.fan-speed-level-desktop.active {
+    background-color: var(--highlight-active); color: white;
+    border-color: var(--highlight-active);
+    box-shadow: 0 0 10px -2px var(--highlight-active), inset 0 0 5px rgba(255,255,255,0.2);
+    transform: scale(1.05);
+}
+
+/* Fan Speed UI (Mobile - Horizontal, LOW on left, fills right) */
+.fan-speed-module-mobile { display: flex; flex-direction: column; align-items: center; width: 100%; }
+.fan-speed-bar-container-mobile {
+    display: flex; flex-direction: row; align-items: stretch; width: 100%; height: 2.5rem; margin-bottom: 0.75rem; padding: 0.25rem;
+    border-radius: 0.5rem; border: 1px solid var(--border-color);
+    justify-content: space-around;
+}
+.fan-speed-level-mobile {
+    flex-grow: 1; height: 100%; margin-left: 0.25rem; border-radius: 0.25rem; 
+    background-color: var(--bg-element); /* Explicit dark background */
+    transition: all 0.2s ease-out; display: flex; align-items: center; justify-content: center;
+    font-weight: 600; font-size: 0.75rem; color: var(--text-secondary); cursor: pointer; border: 1px solid transparent;
+}
+.fan-speed-level-mobile:first-child { margin-left: 0; }
+.fan-speed-level-mobile.filled { background-color: var(--highlight-filled); color: var(--bg-primary); }
+.fan-speed-level-mobile.active {
+    background-color: var(--highlight-active); color: white; border-color: var(--highlight-active);
+    box-shadow: 0 0 8px -2px var(--highlight-active), inset 0 0 4px rgba(255,255,255,0.15);
+    transform: scale(1.03);
+}
+.fan-buttons button { 
+    width: 2.75rem; height: 2.75rem; border-radius: 0.625rem; background-color: var(--bg-element);
+    color: var(--text-primary); display: flex; align-items: center; justify-content: center;
+}
+.fan-buttons button:hover { background-color: var(--accent-purple); }
+
+/* Relay Toggles */
+.toggle-label { height: 2rem; width: 3.5rem; border-radius: 1rem; position: relative; }
+.toggle-checkbox:checked + .toggle-label { background-color: var(--highlight-active); }
+.toggle-circle {
+    background-color: #ffffff; 
+    width: 1.5rem; height: 1.5rem; border-radius: 50%; position: absolute;
+    top: 0.25rem; left: 0.25rem;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    border: 2px solid transparent; 
+}
+.toggle-checkbox:checked + .toggle-label .toggle-circle { transform: translateX(calc(3.5rem - 2rem)); border-color: var(--highlight-active); }
+.toggle-checkbox:not(:checked) + .toggle-label .toggle-circle { border-color: var(--bg-element); }
+
+/* Mobile Menu (Slide-out) */
+#mobileMenuDrawer {
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1); transform: translateX(-100%);
+    box-shadow: 5px 0 25px -5px rgba(0,0,0,0.4);
+    width: 17rem; /* Approx 272px */
+}
+#mobileMenuDrawer.open { transform: translateX(0); }
+.menu-header { padding: 1.25rem; border-bottom: 1px solid var(--border-color); }
+.menu-header-title {
+     color: var(--accent-purple);
+     font-size: 1.2rem; /* Increased size */
+     font-weight: 700; /* Bolder */
+     letter-spacing: 0.02em;
+     text-shadow: 0 0 5px rgba(167, 139, 250, 0.2); /* Subtle glow matching global header */
+}
+.menu-item-action { 
+    display: flex; align-items: center; justify-content: center;
+    background-color: var(--accent-purple); color: white;
+    padding: 0.75rem 1rem; margin: 1rem 1.25rem; border-radius: 0.5rem;
+    font-weight: 600; text-align: center;
+    transition: background-color 0.15s ease, transform 0.1s ease; box-shadow: 0 4px 10px -2px rgba(167, 139, 250, 0.4);
+}
+.menu-item-action:hover { background-color: #8b5cf6; /* Purple 500 */}
+.menu-item-action:active {transform: scale(0.96);}
+.menu-item {
+    display: flex; align-items: center; gap: 0.875rem; /* 14px */
+    padding: 0.875rem 1.25rem; font-size: 1rem; 
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.15s ease; color: var(--text-primary);
+}
+.menu-item i { width: 1.125rem; text-align: center; color: var(--text-secondary); font-size: 0.9rem;}
+.menu-item:hover { background-color: var(--bg-element); }
+.menu-item.active-nav { background-color: var(--bg-element); color: var(--highlight-active); font-weight: 600;}
+.menu-item.active-nav i { color: var(--highlight-active); }
+.menu-item:last-child { border-bottom: none; }
+
+/* Mobile Shutdown Button styling */
+/* Original inline styles applied in HTML itself, this class is for reference only if abstracted later */
+.mobile-shutdown-button i {
+    color: white !important; /* Ensure icon color matches button color */
+}
+
+
+/* Desktop Layout */
+.desktop-layout-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem; width: 100%; max-width: 1350px; padding: 0 1rem 1.5rem 1rem;
+}
+
+/* Mobile Page Display */
+.mobile-page-container { display: none; }
+.mobile-page-container.active { 
+    display: flex; flex-direction: column; width: 100%; padding: 0 1rem 1rem 1rem;
+    animation: fadeInPage 0.3s ease-out;
+}
+@keyframes fadeInPage { from { opacity: 0.8; transform: translateY(10px); } to { opacity: 1; transform: translateY(0px); } }
+
+
+/* Styles for Automation section buttons */
+.automation-type-btn {
+    background-color: var(--bg-element); /* Darker initial color */
+    border: 1px solid var(--border-color);
+    transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+    color: var(--text-primary); 
+}
+.automation-type-btn.active-automation {
+    background-color: var(--accent-purple); /* Lighter when active */
+    box-shadow: 0 0 12px -2px var(--accent-purple), inset 0 0 5px rgba(255,255,255,0.2);
+    transform: scale(1.03);
+    border-color: var(--accent-purple);
+    color: white; 
+}
+.automation-type-btn:not(.active-automation):hover {
+    background-color: var(--border-color); 
+}
+
+/* Automation settings content display for mobile (sliding effect) */
+.automation-settings-panel-mobile {
+    transform-origin: top;
+    max-height: 0; /* Controls the sliding effect */
+    overflow: hidden;
+    transition: max-height 0.4s ease-out, transform 0.3s ease, opacity 0.3s ease;
+    opacity: 0;
+    pointer-events: none; /* Make unclickable when hidden */
+    flex-direction: column; /* Ensure vertical layout for content inside */
+}
+.automation-settings-panel-mobile.visible {
+    max-height: 800px; /* Sufficiently large height to ensure all content and apply button are visible */
+    transform: scale-y(1);
+    opacity: 1;
+    pointer-events: auto;
+    margin-top: 1rem; /* Spacing below the toggle buttons */
+}
+
+/* Automation settings content display for desktop (fade effect and correct positioning) */
+.automation-settings-panel-desktop {
+    display: none; /* Initially hidden, display: flex when active via JS */
+    position: absolute; 
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    opacity: 0;
+    pointer-events: none; 
+    transition: opacity 0.3s ease;
+    flex-direction: column; /* Stack contents vertically */
+    justify-content: flex-start; /* Align content to the top */
+}
+.automation-settings-panel-desktop.visible {
+    display: flex; 
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Fan speed level styling for automation sections (matches general fan-speed-level-X classes) */
+.fan-speed-level-desktop-auto,
+.fan-speed-level-mobile-auto {
+    flex-grow: 1;
+    height: 100%;
+    margin-left: 0.25rem;
+    border-radius: 0.25rem;
+    background-color: var(--bg-element); /* Ensure background is set here */
+    transition: all 0.2s ease-out;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+.fan-speed-level-desktop-auto:first-child,
+.fan-speed-level-mobile-auto:first-child {
+    margin-left: 0;
+}
+.fan-speed-level-desktop-auto.filled,
+.fan-speed-level-mobile-auto.filled {
+    background-color: var(--highlight-filled);
+    color: var(--bg-primary);
+}
+.fan-speed-level-desktop-auto.active,
+.fan-speed-level-mobile-auto.active {
+    background-color: var(--highlight-active);
+    color: white;
+    border-color: var(--highlight-active);
+    box-shadow: 0 0 8px -2px var(--highlight-active), inset 0 0 4px rgba(255,255,255,0.15);
+    transform: scale(1.03);
+}
+
+/* Time input specific style */
+input[type="time"]::-webkit-calendar-picker-indicator {
+    filter: invert(100%); /* Make calendar icon visible on dark background */
+}
+input[type="time"] {
+    color: var(--text-primary); 
+    background-color: var(--bg-element); 
+    border: 1px solid var(--border-color);
+}
+input[type="time"]::-webkit-datetime-edit {
+    color: var(--text-primary);
+}
+
+/* Status Popup styles */
+#statusPopup {
+    display: flex; /* Flexbox for centering */
+    opacity: 0;
+    visibility: hidden; /* Added visibility for better transition control */
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    z-index: 10000; /* Ensure it's on top of everything */
+}
+#statusPopup.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Info button/tooltip styling */
+.info-button {
+    position: relative;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    color: inherit; /* Inherit color from parent for icon */
+    display: inline-flex; /* To correctly position tooltip relative to icon */
+    align-items: center;
+    justify-content: center;
+    outline: none;
+    line-height: 1; /* Adjust line-height to center the icon better */
+}
+.info-button .fa-info-circle {
+    vertical-align: middle; /* Align icon better */
+}
+
+.info-tooltip {
+    display: none; /* Hidden by default */
+    position: absolute;
+    top: 100%; /* Position below the button */
+    left: 50%;
+    transform: translateX(-50%) translateY(8px); /* Center horizontally, push down slightly */
+    min-width: 200px;
+    max-width: 300px;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    font-size: 0.9rem;
+    text-align: center;
+    white-space: normal; /* Allow text to wrap */
+    z-index: 1001; /* Above general popup backdrop */
+    pointer-events: none; /* Allows clicks to pass through when not explicitly visible/hovered */
+    opacity: 0;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+/* Show tooltip on hover for desktop */
+.info-button:hover .info-tooltip {
+    display: block; 
+    opacity: 1;
+    transform: translateX(-50%) translateY(0px); /* Move slightly up on hover */
+    pointer-events: auto; /* Make content clickable/selectable when hovered */
+}
+
+/* Force tooltip visible via JS class */
+.info-tooltip.visible {
+    display: block; 
+    opacity: 1;
+    transform: translateX(-50%) translateY(0px); /* Show at consistent position */
+    pointer-events: auto; /* Make it interactive when explicitly visible */
+}
+
+@media (max-width: 767px) {
+    /* Hide desktop-only elements */
+    .desktop-shutdown-button { display: none !important; }
+    
+    /* On smaller screens, allow click to toggle tooltip (hover won't work consistently) */
+    .info-button:hover .info-tooltip {
+        display: none; /* Disable hover showing for mobile, handled by JS click now */
+    }
+}

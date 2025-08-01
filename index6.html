@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Intelligent Control Hub (BLE)</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css6.css"> <!-- Link to your external CSS file -->
+</head>
+<body class="min-h-screen flex flex-col items-center antialiased">
+
+    <!-- Global App Header -->
+    <header id="appHeaderGlobal">
+        <h1 class="header-title">Smart Control Hub</h1>
+        <p class="header-subtitle">Manage your environment effortlessly via ESP32-S3 (BLE)</p>
+        <div class="status-display-header">
+            <div id="connectionStatusDot" class="status-dot-header disconnected"></div>
+            <button id="bleConnectButton" class="disconnected">Connect to Device</button>
+        </div>
+    </header>
+    
+    <!-- Desktop Shutdown Button (only visible on desktop, positioned absolutely relative to body) -->
+    <!-- Positioned via css6.css. -->
+    <button id="desktopShutdownButton" class="desktop-shutdown-button md:block hidden interactive-button"><i class="fas fa-power-off mr-1"></i> ShutDown</button>
+
+    <!-- Mobile Slide-Out Menu -->
+    <aside id="mobileMenuDrawer" class="md:hidden fixed top-0 left-0 h-full shadow-2xl z-40 pt-0 bg-card-color text-primary-color">
+        <div class="menu-header flex items-center justify-between">
+            <span class="menu-header-title">Navigation</span>
+            <button id="closeMenuButton" class="text-xl p-2 rounded-md hover:bg-slate-700 transition-colors focus:outline-none text-secondary-color">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <nav class="flex flex-col">
+            <a href="#" class="menu-item-action mobile-nav-link" data-page="acFanControlsMobilePage" data-title="AC & Fan Controls"><i class="fas fa-gamepad mr-2"></i>Controls</a>
+            <a href="#" class="menu-item mobile-nav-link" data-page="acFanControlsMobilePage" data-title="AC & Fan Controls"><i class="fas fa-temperature-three-quarters fa-fw"></i>AC & Fan</a>
+            <a href="#" class="menu-item mobile-nav-link" data-page="relaysMobilePage" data-title="System Relays"><i class="fas fa-sliders-h fa-fw"></i>Relays</a>
+            <a href="#" class="menu-item mobile-nav-link" data-page="environmentMobilePage" data-title="Room Statistics"><i class="fas fa-chart-line fa-fw"></i>Environment</a>
+            <a href="#" class="menu-item mobile-nav-link" data-page="automationPage" data-title="Automation Settings"><i class="fas fa-cogs fa-fw"></i>Automation</a>
+            <!-- Inline styles reintroduced as requested -->
+            <a href="#" id="mobileShutdownButton" class="menu-item mobile-nav-link" style="position: fixed; bottom: 10px; left: 36px; text-align: center; margin: 20px; padding: 12px; border-radius: 5px; height: 40px; background-color: rgb(212, 27, 14);"><i class="fas fa-power-off mr-2"></i>ShutDown</a>
+        </nav>
+    </aside>
+    <div id="menuOverlay" class="md:hidden fixed inset-0 bg-black bg-opacity-70 z-30 hidden"></div>
+
+
+    <!-- Main Content -->
+    <main class="w-full flex flex-col items-center flex-grow">
+        <!-- Mobile Top Menu Button (only visible on mobile) -->
+        <div class="md:hidden w-full px-4 pt-3 pb-2 flex items-center justify-between sticky top-0 z-10 bg-primary-color">
+            <button id="mobileMenuButton" class="text-2xl p-2 rounded-md hover:bg-slate-700/50 transition-colors focus:outline-none accent-purple-text">
+                <i class="fas fa-bars"></i>
+            </button>
+            <span id="mobilePageTitle" class="text-lg font-semibold text-center text-primary-color">AC & Fan Controls</span>
+            <div class="w-8"></div> <!-- Spacer for balance -->
+        </div>
+
+        <!-- DESKTOP GRID CONTAINER -->
+        <div id="desktopGridContainer" class="desktop-layout-grid hidden md:grid">
+             <!-- AC Controls: Card for Desktop -->
+            <section class="card" id="acControlsDesktopContainer">
+                <h2 class="section-title">Air Conditioner</h2>
+                <div class="flex-grow flex flex-col justify-around">
+                    <div class="flex justify-center">
+                         <button id="powerButtonDesktop" class="w-20 h-20 rounded-full bg-red-600 text-white flex items-center justify-center text-3xl shadow-xl hover:bg-red-500 interactive-button">
+                            <i class="fas fa-power-off"></i>
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-evenly">
+                        <button id="tempDownButtonDesktop" class="w-14 h-14 rounded-full bg-sky-600 hover:bg-sky-500 text-white interactive-button text-2xl"><i class="fas fa-minus"></i></button>
+                        <div class="text-center">
+                            <div id="currentModeIconDesktop" class="currentModeIcon text-4xl mb-0.5 h-12 flex items-center justify-center"><i class="fas fa-snowflake text-sky-400"></i></div>
+                            <div id="tempDisplayDesktop" class="temp-display-val text-5xl font-bold">24</div>
+                            <div class="text-xs mt-0.5 text-secondary-color">°C</div>
+                        </div>
+                        <button id="tempUpButtonDesktop" class="w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white interactive-button text-2xl"><i class="fas fa-plus"></i></button>
+                    </div>
+                    <div class="flex justify-center">
+                        <button id="modeButtonDesktop" class="w-14 h-14 rounded-full bg-purple-600 hover:bg-purple-500 text-white interactive-button text-xl"><i class="fas fa-cog"></i></button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Fan Speed: Card for Desktop -->
+            <section class="card" id="fanSpeedDesktopContainer">
+                <h2 class="section-title">Fan Speed</h2>
+                <div class="fan-speed-module-desktop">
+                    <div class="fan-speed-bar-container-desktop bg-primary-color border-color">
+                        <div class="fan-speed-level-desktop bg-element-color" data-speed="LOW">L</div>
+                        <div class="fan-speed-level-desktop bg-element-color" data-speed="MEDIUM">M</div>
+                        <div class="fan-speed-level-desktop bg-element-color" data-speed="HIGH">H</div>
+                        <div class="fan-speed-level-desktop bg-element-color" data-speed="AUTO">A</div>
+                    </div>
+                    <div class="fan-buttons flex justify-center space-x-3 mt-auto">
+                        <button id="fanSpeedDownButtonDesktop" title="Decrease Speed" class="interactive-button"><i class="fas fa-chevron-down"></i></button>
+                        <button id="fanSpeedUpButtonDesktop" title="Increase Speed" class="interactive-button"><i class="fas fa-chevron-up"></i></button>
+                    </div>
+                </div>
+            </section>
+            
+            <section class="card justify-center" id="environmentDesktopContainer">
+                <h2 class="section-title">Room Environment</h2>
+                <div class="grid grid-cols-2 gap-4 text-center">
+                    <div class="p-4 bg-gray-700/80 rounded-lg">
+                        <i class="fas fa-thermometer-half text-3xl mb-1.5 highlight-active-text"></i>
+                        <div id="roomTempValueDesktop" class="text-2xl font-bold">0<span class="text-base">°C</span></div>
+                        <div class="text-xs mt-0.5 text-gray-400">Temperature</div>
+                    </div>
+                    <div class="p-4 bg-gray-700/80 rounded-lg">
+                        <i class="fas fa-tint text-3xl mb-1.5 text-sky-400"></i>
+                        <div id="roomHumidityValueDesktop" class="text-2xl font-bold">0<span class="text-base">%</span></div>
+                        <div class="text-xs mt-0.5 text-gray-400">Humidity</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card" id="relaysDesktopContainer">
+                <h2 class="section-title">System Relays</h2>
+                <div class="space-y-3.5 flex-grow flex flex-col justify-center">
+                     <div class="flex items-center justify-between p-3 bg-gray-700/80 rounded-md">
+                        <span class="text-sm font-medium flex items-center"><i class="fas fa-lightbulb mr-2 text-yellow-400"></i>Main Light</span>
+                        <div class="relative inline-block align-middle"><input type="checkbox" id="relay1ToggleDesktop" class="toggle-checkbox absolute opacity-0 w-0 h-0"/><label for="relay1ToggleDesktop" class="toggle-label block cursor-pointer bg-element-color"><span class="toggle-circle block bg-white"></span></label></div>
+                    </div>
+                     <div class="flex items-center justify-between p-3 bg-gray-700/80 rounded-md">
+                        <span class="text-sm font-medium flex items-center"><i class="fas fa-fan mr-2 text-sky-400"></i>Room Fan</span>
+                         <div class="relative inline-block align-middle"><input type="checkbox" id="relay2ToggleDesktop" class="toggle-checkbox absolute opacity-0 w-0 h-0"/><label for="relay2ToggleDesktop" class="toggle-label block cursor-pointer bg-element-color"><span class="toggle-circle block bg-white"></span></label></div>
+                    </div>
+                     <div class="flex items-center justify-between p-3 bg-gray-700/80 rounded-md">
+                        <span class="text-sm font-medium flex items-center"><i class="fas fa-plug mr-2 text-emerald-400"></i>Aux Outlet</span>
+                         <div class="relative inline-block align-middle"><input type="checkbox" id="relay3ToggleDesktop" class="toggle-checkbox absolute opacity-0 w-0 h-0"/><label for="relay3ToggleDesktop" class="toggle-label block cursor-pointer bg-element-color"><span class="toggle-circle block bg-white"></span></label></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- New Automation Section for Desktop -->
+            <section class="card col-span-full" id="automationDesktopContainer" style="height: 600px;"> 
+                <h2 class="section-title flex justify-center items-center">
+                    Automation Settings
+                    <button class="info-button ml-2" data-info-type="automation">
+                        <i class="fas fa-info-circle text-sm text-secondary-color"></i>
+                        <span class="info-tooltip bg-card-color text-primary-color border-color">Automate AC for fixed or oscillating patterns.</span>
+                    </button>
+                </h2>
+                <p class="text-sm text-center text-secondary-color mb-6">Set up your device for fixed-schedule or oscillating operations.</p>
+
+                <div class="flex flex-row h-full space-x-6"> 
+                    <div class="flex flex-col w-1/3 space-y-4"> 
+                        <button id="fixedAutomationBtnDesktop" class="automation-type-btn px-6 py-3 rounded-lg font-semibold interactive-button">Fixed Schedule</button>
+                        <button id="oscillationAutomationBtnDesktop" class="automation-type-btn px-6 py-3 rounded-lg font-semibold interactive-button">Oscillation Schedule</button>
+                    </div>
+                    
+                    <div class="relative w-2/3 p-4 rounded-lg flex-grow bg-element-color">
+                        <div id="fixedAutomationSettingsDesktop" class="automation-settings-panel-desktop" style="padding: 20px;">
+                            <h3 class="text-lg font-semibold flex justify-center items-center accent-purple-text mb-4">
+                                Fixed Schedule
+                                <button class="info-button ml-2" data-info-type="fixed">
+                                    <i class="fas fa-info-circle text-sm text-secondary-color"></i>
+                                    <span class="info-tooltip bg-card-color text-primary-color border-color">Fixed schedule automates AC operation at a specific time.</span>
+                                </button>
+                            </h3>
+
+                            <div class="mb-4 flex items-center justify-between">
+                                <label for="fixedTimeDesktop" class="text-sm font-medium text-gray-300 mr-2">Shutdown Time:</label>
+                                <input type="time" id="fixedTimeDesktop" class="w-32 p-1 border rounded-md text-base text-primary-color bg-element-color border-color focus:ring-accent-purple focus:border-accent-purple">
+                            </div>
+
+                            <div class="flex items-center justify-between mb-4">
+                                <span class="text-sm font-medium">Temperature:</span>
+                                <div class="flex items-center">
+                                    <button id="fixedTempDownDesktop" class="w-10 h-10 rounded-full bg-sky-600 hover:bg-sky-500 text-white interactive-button text-base flex items-center justify-center mr-2"><i class="fas fa-minus"></i></button>
+                                    <span id="fixedTempDisplayDesktop" class="text-3xl font-bold px-3">24</span>
+                                    <button id="fixedTempUpDesktop" class="w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white interactive-button text-base flex items-center justify-center ml-2"><i class="fas fa-plus"></i></button>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-between mb-4">
+                                <span class="text-sm font-medium">Mode:</span>
+                                <div class="flex items-center">
+                                    <div id="fixedModeIconDesktop" class="text-3xl h-10 flex items-center justify-center w-12"><i class="fas fa-snowflake text-sky-400"></i></div>
+                                    <button id="fixedModeChangeDesktop" class="w-10 h-10 rounded-full bg-purple-600 hover:bg-purple-500 text-white interactive-button text-xl flex items-center justify-center ml-2"><i class="fas fa-cog"></i></button>
+                                </div>
+                            </div>
+
+                            <div class="flex flex-col items-center">
+                                <span class="text-sm font-medium mb-2">Fan Speed:</span>
+                                <div class="w-full flex flex-row items-stretch h-10 mb-4 p-1 rounded-md bg-primary-color border-color">
+                                    <div class="fan-speed-level-desktop-auto bg-element-color" data-speed-automation="LOW">L</div>
+                                    <div class="fan-speed-level-desktop-auto bg-element-color" data-speed-automation="MEDIUM">M</div>
+                                    <div class="fan-speed-level-desktop-auto bg-element-color" data-speed-automation="HIGH">H</div>
+                                    <div class="fan-speed-level-desktop-auto bg-element-color" data-speed-automation="AUTO">A</div>
+                                </div>
+                                <div class="fan-buttons flex justify-center space-x-3 w-full">
+                                    <button id="fixedFanSpeedDownDesktop" class="interactive-button"><i class="fas fa-chevron-left"></i></button>
+                                    <button id="fixedFanSpeedUpDesktop" class="interactive-button"><i class="fas fa-chevron-right"></i></button>
+                                </div>
+                            </div>
+
+                            <button id="applyFixedSettingsDesktop" class="menu-item-action w-full mt-6 flex justify-center" style="text-align: center; align-content: baseline; right: 20px; position: relative;" >Apply Fixed Settings</button>
+                        </div>
+
+                        <div id="oscillationAutomationSettingsDesktop" class="automation-settings-panel-desktop" style="padding: 20px; height: 50px;">
+                            <h3 class="text-lg font-semibold flex justify-center items-center accent-purple-text mb-4">
+                                Oscillation Schedule
+                                <button class="info-button ml-2" data-info-type="oscillation">
+                                    <i class="fas fa-info-circle text-sm text-secondary-color"></i>
+                                    <span class="info-tooltip bg-card-color text-primary-color border-color">Oscillation schedules AC cycling ON and OFF.</span>
+                                </button>
+                            </h3>
+                            
+                            <div class="mb-4 flex items-center justify-between">
+                                <label for="oscillationOnTimeDesktop" class="text-sm font-medium text-gray-300 mr-2">On Time:</label>
+                                <input type="time" id="oscillationOnTimeDesktop" class="w-32 p-1 border rounded-md text-base text-primary-color bg-element-color border-color focus:ring-accent-purple focus:border-accent-purple">
+                            </div>
+                            <div class="mb-4 flex items-center justify-between">
+                                <label for="oscillationOffTimeDesktop" class="text-sm font-medium text-gray-300 mr-2">Off Time:</label>
+                                <input type="time" id="oscillationOffTimeDesktop" class="w-32 p-1 border rounded-md text-base text-primary-color bg-element-color border-color focus:ring-accent-purple focus:border-accent-purple">
+                            </div>
+
+                            <div class="flex items-center justify-between mb-4">
+                                <span class="text-sm font-medium">Temperature:</span>
+                                <div class="flex items-center">
+                                    <button id="oscillationTempDownDesktop" class="w-10 h-10 rounded-full bg-sky-600 hover:bg-sky-500 text-white interactive-button text-base flex items-center justify-center mr-2"><i class="fas fa-minus"></i></button>
+                                    <span id="oscillationTempDisplayDesktop" class="text-3xl font-bold px-3">24</span>
+                                    <button id="oscillationTempUpDesktop" class="w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white interactive-button text-base flex items-center justify-center ml-2"><i class="fas fa-plus"></i></button>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-between mb-4">
+                                <span class="text-sm font-medium">Mode:</span>
+                                <div class="flex items-center">
+                                    <div id="oscillationModeIconDesktop" class="text-3xl h-10 flex items-center justify-center w-12"><i class="fas fa-snowflake text-sky-400"></i></div>
+                                    <button id="oscillationModeChangeDesktop" class="w-10 h-10 rounded-full bg-purple-600 hover:bg-purple-500 text-white interactive-button text-xl flex items-center justify-center ml-2"><i class="fas fa-cog"></i></button>
+                                </div>
+                            </div>
+
+                            <div class="flex flex-col items-center">
+                                <span class="text-sm font-medium mb-2">Fan Speed:</span>
+                                <div class="w-full flex flex-row items-stretch h-10 mb-4 p-1 rounded-md bg-primary-color border-color">
+                                    <div class="fan-speed-level-desktop-auto bg-element-color" data-speed-automation="LOW">L</div>
+                                    <div class="fan-speed-level-desktop-auto bg-element-color" data-speed-automation="MEDIUM">M</div>
+                                    <div class="fan-speed-level-desktop-auto bg-element-color" data-speed-automation="HIGH">H</div>
+                                    <div class="fan-speed-level-desktop-auto bg-element-color" data-speed-automation="AUTO">A</div>
+                                </div>
+                                <div class="fan-buttons flex justify-center space-x-3 w-full">
+                                    <button id="oscillationFanSpeedDownDesktop" class="interactive-button" style="top: -10px; position: relative;"><i class="fas fa-chevron-left" ></i></button>
+                                    <button id="oscillationFanSpeedUpDesktop" class="interactive-button" style="top: -10px; position: relative;"><i class="fas fa-chevron-right" ></i></button>
+                                </div>
+                            </div>
+                            <button id="applyOscillationSettingsDesktop" class="menu-item-action w-full mt-6 flex justify-center" style="text-align: center; align-content: baseline; right: 20px; top: -30px; margin-bottom: 10px ; position: relative;">Apply Oscillation Settings</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+        
+        <!-- MOBILE PAGES CONTAINER (Hosts mobile-specific layouts) -->
+        <div id="mobilePagesContainer" class="md:hidden w-full">
+            <div id="acFanControlsMobilePage" class="mobile-page-container">
+                <section class="card mb-4">
+                    <h2 class="section-title">Air Conditioner</h2>
+                    <div class="flex-grow flex flex-col justify-around py-2">
+                        <div class="flex justify-center"><button id="powerButtonMobile" class="w-20 h-20 rounded-full bg-red-600 text-white flex items-center justify-center text-3xl interactive-button">
+                            <i class="fas fa-power-off"></i></button></div>
+                        <div class="flex items-center justify-evenly my-4">
+                            <button id="tempDownButtonMobile" class="w-14 h-14 rounded-full bg-sky-600 text-white interactive-button text-2xl"><i class="fas fa-minus"></i></button>
+                            <div class="text-center">
+                                <div id="currentModeIconMobile" class="currentModeIcon text-4xl mb-0.5 h-12 flex justify-center items-center"><i class="fas fa-snowflake text-sky-400"></i></div>
+                                <div id="tempDisplayMobile" class="temp-display-val text-5xl font-bold">24</div>
+                                <div class="text-xs mt-0.5 text-secondary-color">°C</div>
+                            </div>
+                            <button id="tempUpButtonMobile" class="w-14 h-14 rounded-full bg-emerald-600 text-white interactive-button text-2xl"><i class="fas fa-plus"></i></button>
+                        </div>
+                        <div class="flex justify-center"><button id="modeButtonMobile" class="w-14 h-14 rounded-full bg-indigo-500 text-white interactive-button text-xl"><i class="fas fa-cog"></i></button></div>
+                    </div>
+                </section>
+                <section class="card">
+                    <h2 class="section-title">Fan Speed</h2>
+                    <div class="fan-speed-module-mobile">
+                        <div class="fan-speed-bar-container-mobile bg-primary-color border-color">
+                            <div class="fan-speed-level-mobile bg-element-color" data-speed-mobile="LOW">L</div>
+                            <div class="fan-speed-level-mobile bg-element-color" data-speed-mobile="MEDIUM">M</div>
+                            <div class="fan-speed-level-mobile bg-element-color" data-speed-mobile="HIGH">H</div>
+                            <div class="fan-speed-level-mobile bg-element-color" data-speed-mobile="AUTO">A</div>
+                        </div>
+                        <div class="fan-buttons flex justify-center space-x-3 mt-3">
+                            <button id="fanSpeedDownButtonMobile" class="interactive-button"><i class="fas fa-chevron-left"></i></button>
+                            <button id="fanSpeedUpButtonMobile" class="interactive-button"><i class="fas fa-chevron-right"></i></button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+            
+            <div id="relaysMobilePage" class="mobile-page-container">
+                <section class="card"><h2 class="section-title">System Relays</h2>
+                    <div class="space-y-4 flex-grow flex flex-col justify-center">
+                         <div class="flex items-center justify-between p-3 bg-gray-700/80 rounded-md">
+                            <span class="text-sm font-medium flex items-center"><i class="fas fa-lightbulb mr-2 text-yellow-400"></i>Main Light</span>
+                            <div class="relative inline-block align-middle"><input type="checkbox" id="relay1ToggleMobile" class="toggle-checkbox absolute opacity-0 w-0 h-0"/><label for="relay1ToggleMobile" class="toggle-label block cursor-pointer bg-element-color"><span class="toggle-circle block bg-white"></span></label></div>
+                        </div>
+                         <div class="flex items-center justify-between p-3 bg-gray-700/80 rounded-md">
+                            <span class="text-sm font-medium flex items-center"><i class="fas fa-fan mr-2 text-sky-400"></i>Room Fan</span>
+                             <div class="relative inline-block align-middle"><input type="checkbox" id="relay2ToggleMobile" class="toggle-checkbox absolute opacity-0 w-0 h-0"/><label for="relay2ToggleMobile" class="toggle-label block cursor-pointer bg-element-color"><span class="toggle-circle block bg-white"></span></label></div>
+                        </div>
+                         <div class="flex items-center justify-between p-3 bg-gray-700/80 rounded-md">
+                            <span class="text-sm font-medium flex items-center"><i class="fas fa-plug mr-2 text-emerald-400"></i>Aux Outlet</span>
+                             <div class="relative inline-block align-middle"><input type="checkbox" id="relay3ToggleMobile" class="toggle-checkbox absolute opacity-0 w-0 h-0"/><label for="relay3ToggleMobile" class="toggle-label block cursor-pointer bg-element-color"><span class="toggle-circle block bg-white"></span></label></div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <div id="environmentMobilePage" class="mobile-page-container">
+                <section class="card"><h2 class="section-title">Room Statistics</h2>
+                    <div class="grid grid-cols-1 gap-3 text-center flex-grow content-center">
+                        <div class="py-5 bg-gray-700/80 rounded-lg">
+                            <i class="fas fa-thermometer-half text-3xl mb-1.5 highlight-active-text"></i>
+                            <div id="roomTempValueMobile" class="text-2xl font-bold">0<span class="text-base">°C</span></div>
+                            <div class="text-xs mt-0.5 text-secondary-color">Temperature</div>
+                        </div>
+                        <div class="py-5 bg-gray-700/80 rounded-lg">
+                            <i class="fas fa-tint text-3xl mb-1.5 text-sky-400"></i>
+                            <div id="roomHumidityValueMobile" class="text-2xl font-bold">0<span class="text-base">%</span></div>
+                            <div class="text-xs mt-0.5 text-secondary-color">Humidity</div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- New Automation Section for Mobile -->
+            <div id="automationPage" class="mobile-page-container">
+                <section class="card mb-4">
+                    <h2 class="section-title flex justify-center items-center">
+                        Automation Settings
+                        <button class="info-button ml-2" data-info-type="automation">
+                            <i class="fas fa-info-circle text-sm text-secondary-color"></i>
+                            <span class="info-tooltip bg-card-color text-primary-color border-color">Automate AC for fixed or oscillating patterns.</span>
+                        </button>
+                    </h2>
+                    <p class="text-sm text-center text-secondary-color mb-6">Set up your device for fixed-schedule or oscillating operations.</p>
+
+                    <div class="flex flex-row justify-center space-x-4 mb-6">
+                        <button id="fixedAutomationBtnMobile" class="automation-type-btn px-6 py-2 rounded-lg font-semibold interactive-button">Fixed</button>
+                        <button id="oscillationAutomationBtnMobile" class="automation-type-btn px-6 py-2 rounded-lg font-semibold interactive-button">Oscillation</button>
+                    </div>
+
+                    <div id="fixedAutomationSettingsMobile" class="automation-settings-panel-mobile card p-4 bg-element-color">
+                        <h3 class="text-lg font-semibold flex justify-center items-center accent-purple-text mb-4">
+                            Fixed Schedule
+                            <button class="info-button ml-2" data-info-type="fixed">
+                                <i class="fas fa-info-circle text-sm text-secondary-color"></i>
+                                <span class="info-tooltip bg-card-color text-primary-color border-color">Fixed schedule automates AC operation at a specific time.</span>
+                            </button>
+                        </h3>
+
+                        <div class="mb-4">
+                            <label for="fixedTimeMobile" class="block text-sm font-medium text-gray-300 mb-2 text-center">Set Shutdown Time</label>
+                            <input type="time" id="fixedTimeMobile" class="w-full p-2 border rounded-md text-lg text-primary-color bg-element-color border-color focus:ring-accent-purple focus:border-accent-purple">
+                        </div>
+
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-sm font-medium">Temperature:</span>
+                            <div class="flex items-center">
+                                <button id="fixedTempDownMobile" class="w-10 h-10 rounded-full bg-sky-600 hover:bg-sky-500 text-white interactive-button text-base flex items-center justify-center mr-2"><i class="fas fa-minus"></i></button>
+                                <span id="fixedTempDisplayMobile" class="text-3xl font-bold px-3">24</span>
+                                <button id="fixedTempUpMobile" class="w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white interactive-button text-base flex items-center justify-center ml-2"><i class="fas fa-plus"></i></button>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-sm font-medium">Mode:</span>
+                            <div class="flex items-center">
+                                <div id="fixedModeIconMobile" class="text-3xl h-10 flex items-center justify-center w-12"><i class="fas fa-snowflake text-sky-400"></i></div>
+                                <button id="fixedModeChangeMobile" class="w-10 h-10 rounded-full bg-purple-600 hover:bg-purple-500 text-white interactive-button text-xl flex items-center justify-center ml-2"><i class="fas fa-cog"></i></button>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col items-center">
+                            <span class="text-sm font-medium mb-2">Fan Speed:</span>
+                            <div class="w-full flex items-stretch h-10 mb-4 p-1 rounded-md bg-primary-color border-color">
+                                <div class="fan-speed-level-mobile-auto bg-element-color" data-speed-automation="LOW">L</div>
+                                <div class="fan-speed-level-mobile-auto bg-element-color" data-speed-automation="MEDIUM">M</div>
+                                <div class="fan-speed-level-mobile-auto bg-element-color" data-speed-automation="HIGH">H</div>
+                                <div class="fan-speed-level-mobile-auto bg-element-color" data-speed-automation="AUTO">A</div>
+                            </div>
+                            <div class="fan-buttons flex justify-center space-x-3 w-full">
+                                <button id="fixedFanSpeedDownMobile" class="interactive-button"><i class="fas fa-chevron-left"></i></button>
+                                <button id="fixedFanSpeedUpMobile" class="interactive-button"><i class="fas fa-chevron-right"></i></button>
+                            </div>
+                        </div>
+                        
+                        <button id="applyFixedSettingsMobile" class="menu-item-action w-full mt-6 flex justify-center">Apply Fixed Settings</button>
+                    </div>
+
+                    <div id="oscillationAutomationSettingsMobile" class="automation-settings-panel-mobile card p-4 bg-element-color">
+                        <h3 class="text-lg font-semibold flex justify-center items-center accent-purple-text mb-4">
+                            Oscillation Schedule
+                            <button class="info-button ml-2" data-info-type="oscillation">
+                                <i class="fas fa-info-circle text-sm text-secondary-color"></i>
+                                <span class="info-tooltip bg-card-color text-primary-color border-color">Oscillation schedules AC cycling ON and OFF.</span>
+                            </button>
+                        </h3>
+                        
+                        <div class="mb-4">
+                            <label for="oscillationOnTimeMobile" class="block text-sm font-medium text-gray-300 mb-2 text-center">On Time</label>
+                            <input type="time" id="oscillationOnTimeMobile" class="w-full p-2 border rounded-md text-lg text-primary-color bg-element-color border-color focus:ring-accent-purple focus:border-accent-purple mb-4">
+
+                            <label for="oscillationOffTimeMobile" class="block text-sm font-medium text-gray-300 mb-2 text-center">Off Time</label>
+                            <input type="time" id="oscillationOffTimeMobile" class="w-full p-2 border rounded-md text-lg text-primary-color bg-element-color border-color focus:ring-accent-purple focus:border-accent-purple">
+                        </div>
+
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-sm font-medium">Temperature:</span>
+                            <div class="flex items-center">
+                                <button id="oscillationTempDownMobile" class="w-10 h-10 rounded-full bg-sky-600 hover:bg-sky-500 text-white interactive-button text-base flex items-center justify-center mr-2"><i class="fas fa-minus"></i></button>
+                                <span id="oscillationTempDisplayMobile" class="text-3xl font-bold px-3">24</span>
+                                <button id="oscillationTempUpMobile" class="w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white interactive-button text-base flex items-center justify-center ml-2"><i class="fas fa-plus"></i></button>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-sm font-medium">Mode:</span>
+                            <div class="flex items-center">
+                                <div id="oscillationModeIconMobile" class="text-3xl h-10 flex items-center justify-center w-12"><i class="fas fa-snowflake text-sky-400"></i></div>
+                                <button id="oscillationModeChangeMobile" class="w-10 h-10 rounded-full bg-purple-600 hover:bg-purple-500 text-white interactive-button text-xl flex items-center justify-center ml-2"><i class="fas fa-cog"></i></button>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col items-center">
+                            <span class="text-sm font-medium mb-2">Fan Speed:</span>
+                            <div class="w-full flex items-stretch h-10 mb-4 p-1 rounded-md bg-primary-color border-color">
+                                <div class="fan-speed-level-mobile-auto bg-element-color" data-speed-automation="LOW">L</div>
+                                <div class="fan-speed-level-mobile-auto bg-element-color" data-speed-automation="MEDIUM">M</div>
+                                <div class="fan-speed-level-mobile-auto bg-element-color" data-speed-automation="HIGH">H</div>
+                                <div class="fan-speed-level-mobile-auto bg-element-color" data-speed-automation="AUTO">A</div>
+                            </div>
+                            <div class="fan-buttons flex justify-center space-x-3 w-full">
+                                <button id="oscillationFanSpeedDownMobile" class="interactive-button"><i class="fas fa-chevron-left"></i></button>
+                                <button id="oscillationFanSpeedUpMobile" class="interactive-button"><i class="fas fa-chevron-right"></i></button>
+                            </div>
+                        </div>
+
+                        <button id="applyOscillationSettingsMobile" class="menu-item-action w-full mt-6 flex justify-center">Apply Oscillation Settings</button>
+                    </div>
+                </section>
+            </div>
+        </div>
+        <footer class="pb-6 pt-6 text-center text-xs text-secondary-color">
+             © ESP32-S3 BLE Intelligent Control Hub
+        </footer>
+    </main>
+
+    <!-- Status Popup for Notifications -->
+    <div id="statusPopup" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50 hidden">
+        <div class="bg-card-color p-6 rounded-lg shadow-xl relative max-w-sm w-full mx-4">
+            <button id="closeStatusPopup" class="absolute top-2 right-2 text-xl text-gray-400 hover:text-white">×</button>
+            <p id="statusPopupMessage" class="text-white text-center font-semibold text-lg"></p>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
+    <script>
+    console.log('HTML inline: After Paho load - typeof Paho:', typeof Paho);
+    if (typeof Paho !== 'undefined') {
+        console.log('HTML inline: Paho object:', Paho);
+        console.log('HTML inline: typeof Paho.MQTT:', typeof Paho.MQTT);
+        if (typeof Paho.MQTT !== 'undefined') {
+           console.log('HTML inline: typeof Paho.MQTT.Client:', typeof Paho.MQTT.Client);
+        }
+    } else {
+        console.error('HTML inline: Paho is UNDEFINED immediately after its script tag!');
+    }</script>
+    <script src="js6.js"></script>
+    
+    <script src="js7.js"></script>
+     <!-- Link to your external JavaScript file -->
+
+     
+</body>
+</html>
