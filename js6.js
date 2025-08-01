@@ -141,12 +141,15 @@ const MQTT_Ctrl = (() => {
         _log(`Attempting to connect to MQTT broker at ${MQTT_BROKER_HOST}:${MQTT_BROKER_PORT}...`);
         _updateAndNotifyStatus(false, false, "MQTT Connecting...");
 
-        client.onConnectionLost = onConnectionLost;
+        // Assign the message handler directly to the client object. This is the correct
+        // place for this specific callback according to the Paho library.
         client.onMessageArrived = onMessageArrived;
 
+        // All other connection-related callbacks go into the options object.
         const connectOptions = {
             onSuccess: onConnectSuccess,
             onFailure: onConnectFailure,
+            onConnectionLost: onConnectionLost, // MOVED HERE TO FIX ReferenceError
             useSSL: MQTT_USE_SSL,
             cleanSession: true,
             reconnect: true, // Paho will handle automatic reconnects
@@ -166,6 +169,7 @@ const MQTT_Ctrl = (() => {
             _updateAndNotifyStatus(false, false, "MQTT Connection Error");
         }
     }
+
 
     
     function _subscribeToTopicsAndRestartDeviceCheckTimer() {
