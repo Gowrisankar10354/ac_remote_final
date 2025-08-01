@@ -123,54 +123,48 @@ const MQTT_Ctrl = (() => {
         return true;
     }
 
-    // In js6.js, replace the old connect function with this:
-
-    /**
-     * NEW & IMPROVED: Connects to the MQTT broker with Last Will and Testament.
-     */
     function connect() {
-        if (connectedToBroker) {
-            _log("Already connected or connecting to broker.");
-            return;
-        }
         if (!client) {
-            _error("Client not initialized. Call init() first.");
+            _error("Connect called, but MQTT client not initialized.");
+            _updateAndNotifyStatus(false, false, "MQTT System Error (Client not init)");
             return;
         }
-
-        _log(`Attempting to connect to MQTT broker at ${MQTT_BROKER_HOST}:${MQTT_BROKER_PORT}...`);
-        _updateAndNotifyStatus(false, false, "MQTT Connecting...");
-
-        // Assign the message handler directly to the client object. This is the correct
-        // place for this specific callback according to the Paho library.
-        client.onMessageArrived = onMessageArrived;
-
-        // All other connection-related callbacks go into the options object.
-        const connectOptions = {
-            onSuccess: onConnectSuccess,
-            onFailure: onConnectFailure,
-            onConnectionLost: onConnectionLost, // MOVED HERE TO FIX ReferenceError
-            useSSL: MQTT_USE_SSL,
-            cleanSession: true,
-            reconnect: true, // Paho will handle automatic reconnects
-            timeout: 10,
-            // Last Will and Testament (LWT) - A key feature for reliability
-            // If the ESP32 disconnects ungracefully, the broker will publish this message.
-            willMessage: new Paho.Message("offline"),
-            willDestinationName: MQTT_DEVICE_READY_TOPIC,
-            willQos: 1,
-            willRetain: true
-        };
-
-        try {
-            client.connect(connectOptions);
-        } catch (error) {
-            _error("Error during initial client.connect call:", error);
-            _updateAndNotifyStatus(false, false, "MQTT Connection Error");
+        
+        // Use our combined state for "fully connected"
+        if (isFullyConnected()) { 
+            _log("Already fully connected (Broker + Device Confirmed Online).");
+             _updateAndNotifyStatus(true, true, "MQTT Device Online"); // Re-notify main app
+            return;
         }
+        // If connected to broker but device not yet confirmed
+        if (client.isConnected() && !esp32ConfirmedOnline) { 
+            _log("Connected to broker, but ESP32 device not yet confirmed. Waiting for 'online' signal.");
+            _updateAndNotifyStatus(true, false, "MQTT: Verifying Device...");
+            _subscribeToTopicsAndRestartDeviceCheckTimer(); // Re-subscribe just in case & restart timer
+            return;
+        }
+        
+        _log("Attempting to connect to MQTT broker...");
+        esp32ConfirmedOnline = false; // Reset device confirmation on new connect attempt
+        _updateAndNotifyStatus(false, false, "Connecting to MQTT Broker...");
+
+        client.connect({
+            timeout: 10, 
+            useSSL: (MQTT_BROKER_HOST.startsWith("wss://") || [443, 8081, 8883, 8884].includes(MQTT_BROKER_PORT)),
+            onSuccess: () => {
+                _log("Successfully connected to MQTT Broker!");
+                // At this point, only broker is connected. Device confirmation is pending.
+                _updateAndNotifyStatus(true, false, "MQTT: Verifying Device..."); 
+                _subscribeToTopicsAndRestartDeviceCheckTimer();
+            },
+            onFailure: (responseObject) => {
+                _error("Failed to connect to MQTT Broker:", responseObject.errorMessage);
+                _updateAndNotifyStatus(false, false, "MQTT Broker Connection Failed");
+            },
+            keepAliveInterval: 30,
+            cleanSession: true // Standard for web clients that don't need to resume sessions
+        });
     }
-
-
     
     function _subscribeToTopicsAndRestartDeviceCheckTimer() {
         if (!client || !client.isConnected()) {
