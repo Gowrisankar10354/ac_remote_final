@@ -170,6 +170,7 @@ const MQTT_Ctrl = (() => {
         }
     }
 
+
     
     function _subscribeToTopicsAndRestartDeviceCheckTimer() {
         if (!client || !client.isConnected()) {
