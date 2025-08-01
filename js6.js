@@ -112,6 +112,9 @@ const MQTT_Ctrl = (() => {
         
         try {
             client = new Paho.Client(MQTT_BROKER_HOST, MQTT_BROKER_PORT, "/mqtt", clientId);
+            // DEFINITIVE FIX: Assign callbacks right after client creation.
+            client.onMessageArrived = onMessageArrived;
+            client.onConnectionLost = onConnectionLost;
             return true;
         } catch (error) {
             _error("Failed to create Paho client.", error);
@@ -132,9 +135,6 @@ const MQTT_Ctrl = (() => {
         _log("Attempting to connect...");
         _updateAndNotifyStatus(false, false, "MQTT Connecting...");
         
-        client.onMessageArrived = onMessageArrived;
-        client.onConnectionLost = onConnectionLost;
-
         const connectOptions = {
             onSuccess: onConnectSuccess,
             onFailure: onConnectFailure,
